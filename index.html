@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 Notenverwaltung</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'apple-gray': '#f5f5f7',
+                        'apple-blue': '#007aff',
+                        'apple-green': '#34c759',
+                        'apple-red': '#ff3b30',
+                    },
+                    fontFamily: {
+                        'sf': ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .note-input {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .note-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+        
+        .card {
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .note-tag {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .note-tag:hover {
+            transform: scale(1.05);
+        }
+
+        .add-note-btn {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .add-note-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-apple-gray font-sf">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">
+                📚 Notenverwaltung
+            </h1>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                Verwalten Sie Ihre Studiennoten mit mehreren Noten pro Modul und gewichteten Durchschnitten
+            </p>
+        </div>
+
+        <!-- Gesamtdurchschnitt -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8 card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-2">
+                        Gesamtdurchschnitt
+                    </h2>
+                    <p class="text-sm text-gray-600">
+                        Gewichteter Durchschnitt aller Modul-Durchschnitte
+                    </p>
+                </div>
+                <div class="text-right">
+                    <div id="gesamtDurchschnitt" class="text-3xl font-bold text-gray-400">
+                        -
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Semester-Durchschnitte -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8" id="semesterDurchschnitte">
+            <!-- Wird durch JavaScript gefüllt -->
+        </div>
+
+        <!-- Aktionen -->
+        <div class="flex justify-center mb-8 gap-4">
+            <button
+                onclick="clearAllNoten()"
+                class="px-6 py-3 bg-apple-red text-white rounded-xl font-medium hover:bg-red-600 transition-colors shadow-sm"
+            >
+                Alle Noten löschen
+            </button>
+            <button
+                onclick="exportData()"
+                class="px-6 py-3 bg-apple-blue text-white rounded-xl font-medium hover:bg-blue-600 transition-colors shadow-sm"
+            >
+                📊 Daten exportieren
+            </button>
+        </div>
+
+        <!-- Modul-Tabellen -->
+        <div id="modulTabellen">
+            <!-- Wird durch JavaScript gefüllt -->
+        </div>
+    </div>
+
+    <script>
+        // Modul-Daten
+        const module = [
+            { name: "Präsentationstechnik, Selbst- und Kompetenzmanagement", semester: 1, gewichtung: 2 },
+            { name: "Betriebswirtschaft, Prozess- und Qualitätsmanagement", semester: 1, gewichtung: 2 },
+            { name: "Englisch", semester: 1, gewichtung: 2 },
+            { name: "Englisch", semester: 2, gewichtung: 2 },
+            { name: "Schriftliche Kommunikation", semester: 2, gewichtung: 2 },
+            { name: "Projektmanagement", semester: 3, gewichtung: 2 },
+            { name: "Leadership, Mitarbeiterführung", semester: 5, gewichtung: 2 },
+            { name: "Informationstechnologien (O365, IT-Sicherheit)", semester: 1, gewichtung: 4 },
+            { name: "Physik", semester: 2, gewichtung: 4 },
+            { name: "Mathematik, Software-Tools", semester: 1, gewichtung: 4 },
+            { name: "Mathematik, Software-Tools", semester: 2, gewichtung: 4 },
+            { name: "Datenermittlung, Zeitwirtschaft (SCM)", semester: 1, gewichtung: 2 },
+            { name: "Fertigungsplanung, Arbeitsvorbereitung (SCM)", semester: 2, gewichtung: 2 },
+            { name: "Qualitätsmanagement, TQM", semester: 3, gewichtung: 2 },
+            { name: "Arbeitsgestaltung, Layoutplanung", semester: 3, gewichtung: 4 },
+            { name: "Beschaffung, Produktion, Logistik (SCM)", semester: 4, gewichtung: 4 },
+            { name: "Produktionsplanung und -steuerung*, Instandhaltung (SCM)", semester: 5, gewichtung: 4 },
+            { name: "Regelungen, Normen, Arbeitssicherheit", semester: 6, gewichtung: 2 },
+            { name: "Problemlösungsprozess", semester: 1, gewichtung: 1 },
+            { name: "Betriebliches Rechnungswesen", semester: 2, gewichtung: 4 },
+            { name: "Organisation, Prozessmanagement", semester: 3, gewichtung: 3 },
+            { name: "Changemanagement, Konfliktmanagement", semester: 4, gewichtung: 2 },
+            { name: "Changemanagement, Konfliktmanagement", semester: 5, gewichtung: 2 },
+            { name: "Wertstromdesign", semester: 3, gewichtung: 2 },
+            { name: "Betriebliche Informationssysteme", semester: 4, gewichtung: 2 },
+            { name: "Umwelt und Nachhaltigkeit", semester: 5, gewichtung: 2 },
+            { name: "Recht, Produkthaftpflicht", semester: 5, gewichtung: 2 },
+            { name: "Interkulturelles Management, Businessethik", semester: 6, gewichtung: 2 },
+            { name: "Marketing, Businessplan", semester: 6, gewichtung: 3 },
+            { name: "Innovations- und Technologiemanagement", semester: 6, gewichtung: 1 },
+            { name: "Präsentation", semester: 1, gewichtung: 2 },
+            { name: "Projektarbeiten, Semesterarbeit", semester: 2, gewichtung: 2 },
+            { name: "Projektarbeiten, Semesterarbeit", semester: 3, gewichtung: 2 },
+            { name: "Projektarbeiten, Semesterarbeit", semester: 4, gewichtung: 2 },
+            { name: "Projektarbeiten, Semesterarbeit", semester: 5, gewichtung: 4 },
+            { name: "Synthesearbeit", semester: 6, gewichtung: 2 },
+            { name: "Diplomarbeit", semester: 6, gewichtung: 6 },
+        ];
+
+        // Noten-Objekt (jetzt mit Arrays für mehrere Noten pro Modul)
+        let noten = {};
+
+        // LocalStorage laden
+        function loadNoten() {
+            const savedNoten = localStorage.getItem('notenverwaltung-noten');
+            if (savedNoten) {
+                noten = JSON.parse(savedNoten);
+                // Konvertiere alte Format (einzelne Noten) zu neuem Format (Arrays)
+                Object.keys(noten).forEach(modulName => {
+                    if (typeof noten[modulName] === 'number') {
+                        noten[modulName] = noten[modulName] > 0 ? [noten[modulName]] : [];
+                    }
+                });
+            }
+        }
+
+        // LocalStorage speichern
+        function saveNoten() {
+            localStorage.setItem('notenverwaltung-noten', JSON.stringify(noten));
+        }
+
+        // Modul-Durchschnitt berechnen
+        function calculateModulAverage(modulName) {
+            const modulNoten = noten[modulName] || [];
+            if (modulNoten.length === 0) return null;
+            
+            const sum = modulNoten.reduce((acc, note) => acc + note, 0);
+            return sum / modulNoten.length;
+        }
+
+        // Noten hinzufügen
+        function addNote(modulName) {
+            if (!noten[modulName]) {
+                noten[modulName] = [];
+            }
+            
+            const noteInput = document.getElementById(`note-input-${modulName.replace(/[^a-zA-Z0-9]/g, '-')}`);
+            const note = parseFloat(noteInput.value);
+            
+            if (note && note >= 1 && note <= 6) {
+                noten[modulName].push(note);
+                noteInput.value = '';
+                saveNoten();
+                updateUI();
+            } else {
+                alert('Bitte geben Sie eine gültige Note zwischen 1.0 und 6.0 ein.');
+            }
+        }
+
+        // Einzelne Note löschen
+        function removeNote(modulName, index) {
+            noten[modulName].splice(index, 1);
+            saveNoten();
+            updateUI();
+        }
+
+        // Alle Noten eines Moduls löschen
+        function clearModulNoten(modulName) {
+            if (confirm(`Möchten Sie wirklich alle Noten für "${modulName}" löschen?`)) {
+                noten[modulName] = [];
+                saveNoten();
+                updateUI();
+            }
+        }
+
+        // Alle Noten löschen
+        function clearAllNoten() {
+            if (confirm('Möchten Sie wirklich alle Noten löschen?')) {
+                noten = {};
+                saveNoten();
+                updateUI();
+            }
+        }
+
+        // Daten exportieren
+        function exportData() {
+            const exportData = {
+                module: module,
+                noten: noten,
+                exportDate: new Date().toISOString(),
+                semesterAverages: {},
+                overallAverage: calculateOverallAverage()
+            };
+
+            // Semester-Durchschnitte hinzufügen
+            for (let semester = 1; semester <= 6; semester++) {
+                exportData.semesterAverages[semester] = calculateSemesterAverage(semester);
+            }
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `notenverwaltung-export-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+        }
+
+        // Semester-Durchschnitt berechnen
+        function calculateSemesterAverage(semester) {
+            const semesterModule = module.filter(modul => modul.semester === semester);
+            const validModuleAverages = semesterModule
+                .map(modul => ({ modul, average: calculateModulAverage(modul.name) }))
+                .filter(item => item.average !== null);
+            
+            if (validModuleAverages.length === 0) return null;
+
+            const totalWeightedSum = validModuleAverages.reduce((sum, item) => {
+                return sum + (item.average * item.modul.gewichtung);
+            }, 0);
+
+            const totalWeight = validModuleAverages.reduce((sum, item) => {
+                return sum + item.modul.gewichtung;
+            }, 0);
+
+            return totalWeight > 0 ? totalWeightedSum / totalWeight : null;
+        }
+
+        // Gesamtdurchschnitt berechnen
+        function calculateOverallAverage() {
+            const allValidAverages = module
+                .map(modul => ({ modul, average: calculateModulAverage(modul.name) }))
+                .filter(item => item.average !== null);
+            
+            if (allValidAverages.length === 0) return null;
+
+            const totalWeightedSum = allValidAverages.reduce((sum, item) => {
+                return sum + (item.average * item.modul.gewichtung);
+            }, 0);
+
+            const totalWeight = allValidAverages.reduce((sum, item) => {
+                return sum + item.modul.gewichtung;
+            }, 0);
+
+            return totalWeight > 0 ? totalWeightedSum / totalWeight : null;
+        }
+
+        // Farbe für Noten
+        function getNoteColor(note) {
+            if (note >= 5.5) return 'text-apple-green';
+            if (note >= 4.5) return 'text-yellow-500';
+            return 'text-apple-red';
+        }
+
+        // Farbe für Durchschnitte
+        function getAverageColor(average) {
+            if (average >= 5.5) return 'text-apple-green';
+            if (average >= 4.5) return 'text-yellow-500';
+            return 'text-apple-red';
+        }
+
+        // UI aktualisieren
+        function updateUI() {
+            // Semester-Durchschnitte aktualisieren
+            const semesterContainer = document.getElementById('semesterDurchschnitte');
+            semesterContainer.innerHTML = '';
+
+            for (let semester = 1; semester <= 6; semester++) {
+                const average = calculateSemesterAverage(semester);
+                const semesterModule = module.filter(m => m.semester === semester);
+                
+                const semesterCard = document.createElement('div');
+                semesterCard.className = 'bg-white rounded-xl shadow-sm border border-gray-100 p-4 card';
+                semesterCard.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-semibold text-gray-900">
+                                ${semester}. Semester
+                            </h3>
+                            <p class="text-xs text-gray-500">
+                                ${semesterModule.length} Module
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-bold ${average ? getAverageColor(average) : 'text-gray-400'}">
+                                ${average ? average.toFixed(2) : '-'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                semesterContainer.appendChild(semesterCard);
+            }
+
+            // Gesamtdurchschnitt aktualisieren
+            const overallAverage = calculateOverallAverage();
+            const gesamtElement = document.getElementById('gesamtDurchschnitt');
+            gesamtElement.textContent = overallAverage ? overallAverage.toFixed(2) : '-';
+            gesamtElement.className = `text-3xl font-bold ${overallAverage ? getAverageColor(overallAverage) : 'text-gray-400'}`;
+
+            // Modul-Tabellen aktualisieren
+            updateModulTabellen();
+        }
+
+        // Modul-Tabellen erstellen
+        function updateModulTabellen() {
+            const container = document.getElementById('modulTabellen');
+            container.innerHTML = '';
+
+            for (let semester = 1; semester <= 6; semester++) {
+                const semesterModule = module.filter(modul => modul.semester === semester);
+                if (semesterModule.length === 0) continue;
+
+                const semesterDiv = document.createElement('div');
+                semesterDiv.className = 'bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8 card';
+                
+                let tableHTML = `
+                    <div class="bg-apple-gray px-6 py-4 border-b border-gray-100">
+                        <h2 class="text-xl font-semibold text-gray-900">
+                            ${semester}. Semester
+                        </h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-sm font-medium text-gray-700">
+                                        Modul
+                                    </th>
+                                    <th class="px-6 py-4 text-center text-sm font-medium text-gray-700 w-24">
+                                        Gewichtung
+                                    </th>
+                                    <th class="px-6 py-4 text-center text-sm font-medium text-gray-700 w-32">
+                                        Modul-Durchschnitt
+                                    </th>
+                                    <th class="px-6 py-4 text-center text-sm font-medium text-gray-700">
+                                        Noten
+                                    </th>
+                                    <th class="px-6 py-4 text-center text-sm font-medium text-gray-700 w-32">
+                                        Aktionen
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                `;
+
+                semesterModule.forEach(modul => {
+                    const modulNoten = noten[modul.name] || [];
+                    const modulAverage = calculateModulAverage(modul.name);
+                    const modulId = modul.name.replace(/[^a-zA-Z0-9]/g, '-');
+                    
+                    tableHTML += `
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 text-sm text-gray-900">
+                                ${modul.name}
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-apple-blue text-white">
+                                    ${modul.gewichtung}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <div class="text-lg font-bold ${modulAverage ? getAverageColor(modulAverage) : 'text-gray-400'}">
+                                    ${modulAverage ? modulAverage.toFixed(2) : '-'}
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    ${modulNoten.length} Note${modulNoten.length !== 1 ? 'n' : ''}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <div class="flex flex-wrap gap-1 justify-center mb-2">
+                                    ${modulNoten.map((note, index) => `
+                                        <span class="note-tag inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getNoteColor(note)} bg-gray-100 cursor-pointer" 
+                                              onclick="removeNote('${modul.name}', ${index})" 
+                                              title="Klicken zum Löschen">
+                                            ${note.toFixed(1)} ×
+                                        </span>
+                                    `).join('')}
+                                </div>
+                                <div class="flex items-center justify-center gap-2">
+                                    <input
+                                        id="note-input-${modulId}"
+                                        type="number"
+                                        min="1"
+                                        max="6"
+                                        step="0.1"
+                                        class="w-16 h-8 text-center text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-apple-blue focus:border-transparent note-input"
+                                        placeholder="Note"
+                                        onkeypress="if(event.key==='Enter') addNote('${modul.name}')"
+                                    />
+                                    <button
+                                        onclick="addNote('${modul.name}')"
+                                        class="add-note-btn w-8 h-8 bg-apple-green text-white rounded-lg flex items-center justify-center text-sm font-medium hover:bg-green-600"
+                                        title="Note hinzufügen"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <button
+                                    onclick="clearModulNoten('${modul.name}')"
+                                    class="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-300 transition-colors"
+                                    title="Alle Noten löschen"
+                                >
+                                    Löschen
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                semesterDiv.innerHTML = tableHTML;
+                container.appendChild(semesterDiv);
+            }
+        }
+
+        // App initialisieren
+        function initApp() {
+            loadNoten();
+            updateUI();
+        }
+
+        // App starten
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html> 
