@@ -66,16 +66,21 @@
 </head>
 <body class="min-h-screen bg-apple-gray font-sf">
     <div class="container mx-auto px-4 py-8">
+        <!-- Login/Logout & User Info -->
+        <div class="flex items-center gap-4 mb-8">
+            <button id="loginBtn" onclick="loginWithGoogle()" class="px-4 py-2 bg-apple-blue text-white rounded-lg font-medium hover:bg-blue-600">Mit Google anmelden</button>
+            <button id="logoutBtn" onclick="logout()" class="px-4 py-2 bg-apple-red text-white rounded-lg font-medium hover:bg-red-600" style="display:none">Abmelden</button>
+            <span id="userInfo" class="text-gray-700">Nicht angemeldet</span>
+        </div>
         <!-- Header -->
         <div class="text-center mb-12">
             <h1 class="text-4xl font-bold text-gray-900 mb-4">
                 📚 Notenverwaltung
             </h1>
             <p class="text-lg text-gray-600 max-w-2xl mx-auto">
-                Verwalten Sie Ihre Studiennoten mit mehreren Noten pro Modul und gewichteten Durchschnitten
+                Verwalten Sie Ihre Studiennoten mit mehreren Noten pro Modul und gewichteten Durchschnitten – jetzt mit Google Login und Cloud-Sync!
             </p>
         </div>
-
         <!-- Gesamtdurchschnitt -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8 card">
             <div class="flex items-center justify-between">
@@ -94,36 +99,84 @@
                 </div>
             </div>
         </div>
-
         <!-- Semester-Durchschnitte -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8" id="semesterDurchschnitte">
-            <!-- Wird durch JavaScript gefüllt -->
-        </div>
-
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8" id="semesterDurchschnitte"></div>
         <!-- Aktionen -->
         <div class="flex justify-center mb-8 gap-4">
-            <button
-                onclick="clearAllNoten()"
-                class="px-6 py-3 bg-apple-red text-white rounded-xl font-medium hover:bg-red-600 transition-colors shadow-sm"
-            >
-                Alle Noten löschen
-            </button>
-            <button
-                onclick="exportData()"
-                class="px-6 py-3 bg-apple-blue text-white rounded-xl font-medium hover:bg-blue-600 transition-colors shadow-sm"
-            >
-                📊 Daten exportieren
-            </button>
+            <button onclick="clearAllNoten()" class="px-6 py-3 bg-apple-red text-white rounded-xl font-medium hover:bg-red-600 transition-colors shadow-sm">Alle Noten löschen</button>
+            <button onclick="exportData()" class="px-6 py-3 bg-apple-blue text-white rounded-xl font-medium hover:bg-blue-600 transition-colors shadow-sm">📊 Daten exportieren</button>
         </div>
-
         <!-- Modul-Tabellen -->
-        <div id="modulTabellen">
-            <!-- Wird durch JavaScript gefüllt -->
-        </div>
+        <div id="modulTabellen"></div>
     </div>
-
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script>
-        // Modul-Daten
+        // Firebase-Konfiguration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD9UF51cbQWxBOcivaeK1bxlemjUbuq59o",
+            authDomain: "noten-app-22aca.firebaseapp.com",
+            projectId: "noten-app-22aca",
+            storageBucket: "noten-app-22aca.appspot.com",
+            messagingSenderId: "322109630647",
+            appId: "1:322109630647:web:10570ac8197a0f146d4532",
+            measurementId: "G-WMECYZM943"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Login/Logout
+        function loginWithGoogle() {
+            var provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider);
+        }
+        function logout() {
+            auth.signOut();
+        }
+
+        // Auth-Status beobachten
+        auth.onAuthStateChanged(function(user) {
+            if (user) {
+                document.getElementById('userInfo').textContent = "Angemeldet als: " + user.displayName;
+                document.getElementById('logoutBtn').style.display = "inline";
+                document.getElementById('loginBtn').style.display = "none";
+                // Noten aus Firestore laden
+                loadNotenFromCloud(user.uid, function(noten) {
+                    window.noten = noten || {};
+                    updateUI();
+                });
+            } else {
+                document.getElementById('userInfo').textContent = "Nicht angemeldet";
+                document.getElementById('logoutBtn').style.display = "none";
+                document.getElementById('loginBtn').style.display = "inline";
+                window.noten = {};
+                updateUI();
+            }
+        });
+
+        // Noten speichern
+        function saveNotenToCloud(noten) {
+            if (auth.currentUser) {
+                db.collection("noten").doc(auth.currentUser.uid).set({ noten });
+            }
+        }
+
+        // Noten laden
+        function loadNotenFromCloud(userId, callback) {
+            db.collection("noten").doc(userId).get().then(doc => {
+                if (doc.exists) {
+                    callback(doc.data().noten);
+                } else {
+                    callback({});
+                }
+            });
+        }
+    </script>
+    <script>
+        // Modul-Daten (wie gehabt)
         const module = [
             { name: "Präsentationstechnik, Selbst- und Kompetenzmanagement", semester: 1, gewichtung: 2 },
             { name: "Betriebswirtschaft, Prozess- und Qualitätsmanagement", semester: 1, gewichtung: 2 },
@@ -163,32 +216,12 @@
             { name: "Synthesearbeit", semester: 6, gewichtung: 2 },
             { name: "Diplomarbeit", semester: 6, gewichtung: 6 },
         ];
-
-        // Noten-Objekt (jetzt mit Arrays für mehrere Noten pro Modul)
-        let noten = {};
-
-        // LocalStorage laden
-        function loadNoten() {
-            const savedNoten = localStorage.getItem('notenverwaltung-noten');
-            if (savedNoten) {
-                noten = JSON.parse(savedNoten);
-                // Konvertiere alte Format (einzelne Noten) zu neuem Format (Arrays)
-                Object.keys(noten).forEach(modulName => {
-                    if (typeof noten[modulName] === 'number') {
-                        noten[modulName] = noten[modulName] > 0 ? [noten[modulName]] : [];
-                    }
-                });
-            }
-        }
-
-        // LocalStorage speichern
-        function saveNoten() {
-            localStorage.setItem('notenverwaltung-noten', JSON.stringify(noten));
-        }
+        // Noten-Objekt (wird durch Cloud geladen)
+        window.noten = {};
 
         // Modul-Durchschnitt berechnen
         function calculateModulAverage(modulName) {
-            const modulNoten = noten[modulName] || [];
+            const modulNoten = window.noten[modulName] || [];
             if (modulNoten.length === 0) return null;
             
             const sum = modulNoten.reduce((acc, note) => acc + note, 0);
@@ -197,18 +230,17 @@
 
         // Noten hinzufügen
         function addNote(modulName) {
-            if (!noten[modulName]) {
-                noten[modulName] = [];
+            if (!window.noten[modulName]) {
+                window.noten[modulName] = [];
             }
             
             const noteInput = document.getElementById(`note-input-${modulName.replace(/[^a-zA-Z0-9]/g, '-')}`);
             const note = parseFloat(noteInput.value);
             
             if (note && note >= 1 && note <= 6) {
-                noten[modulName].push(note);
+                window.noten[modulName].push(note);
                 noteInput.value = '';
-                saveNoten();
-                updateUI();
+                onNotenChanged(); // Speichern und UI aktualisieren
             } else {
                 alert('Bitte geben Sie eine gültige Note zwischen 1.0 und 6.0 ein.');
             }
@@ -216,26 +248,23 @@
 
         // Einzelne Note löschen
         function removeNote(modulName, index) {
-            noten[modulName].splice(index, 1);
-            saveNoten();
-            updateUI();
+            window.noten[modulName].splice(index, 1);
+            onNotenChanged(); // Speichern und UI aktualisieren
         }
 
         // Alle Noten eines Moduls löschen
         function clearModulNoten(modulName) {
             if (confirm(`Möchten Sie wirklich alle Noten für "${modulName}" löschen?`)) {
-                noten[modulName] = [];
-                saveNoten();
-                updateUI();
+                window.noten[modulName] = [];
+                onNotenChanged(); // Speichern und UI aktualisieren
             }
         }
 
         // Alle Noten löschen
         function clearAllNoten() {
             if (confirm('Möchten Sie wirklich alle Noten löschen?')) {
-                noten = {};
-                saveNoten();
-                updateUI();
+                window.noten = {};
+                onNotenChanged(); // Speichern und UI aktualisieren
             }
         }
 
@@ -243,7 +272,7 @@
         function exportData() {
             const exportData = {
                 module: module,
-                noten: noten,
+                noten: window.noten,
                 exportDate: new Date().toISOString(),
                 semesterAverages: {},
                 overallAverage: calculateOverallAverage()
@@ -404,7 +433,7 @@
                 `;
 
                 semesterModule.forEach(modul => {
-                    const modulNoten = noten[modul.name] || [];
+                    const modulNoten = window.noten[modul.name] || [];
                     const modulAverage = calculateModulAverage(modul.name);
                     const modulId = modul.name.replace(/[^a-zA-Z0-9]/g, '-');
                     
@@ -482,12 +511,17 @@
 
         // App initialisieren
         function initApp() {
-            loadNoten();
-            updateUI();
+            // updateUI(); // Initialisierung wird jetzt durch Auth-Status-Beobachter geregelt
         }
 
         // App starten
         document.addEventListener('DOMContentLoaded', initApp);
+
+        // Beispiel: Nach jeder Änderung an den Noten
+        function onNotenChanged() {
+            saveNotenToCloud(window.noten);
+            updateUI();
+        }
     </script>
 </body>
 </html> 
